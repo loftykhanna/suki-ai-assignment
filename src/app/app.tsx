@@ -53,7 +53,7 @@ export function App() {
     const microphoneSource = audioContext.createMediaStreamSource(stream);
 
 
-    await audioContext.audioWorklet.addModule('public/worklet/worker.js');
+    await audioContext.audioWorklet.addModule('worklet/worker.js');
 
     // Create an instance of the AudioWorklet node
     const audioWorkletNode = new AudioWorkletNode(audioContext, 'test-processor');
