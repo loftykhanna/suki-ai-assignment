@@ -10,7 +10,7 @@
       "defaultConfiguration": "production",
       "options": {
         "compiler": "babel",
-        "outputPath": "dist/suki-ai-nx",
+        "outputPath": "dist",
         "index": "src/index.html",
         "baseHref": "/",
         "main": "src/main.tsx",
