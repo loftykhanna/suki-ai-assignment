@@ -1,7 +1,6 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import styles from './app.module.css';
-
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const constraints = {
   audio: {
@@ -19,6 +18,7 @@ export function App() {
   const [isMicrophonePermissionEnabled, setMicrophonePermission] = useState(false);
   const [disableStartButton, setDisableStartButton] = useState(false);
   const [disableStopButton, setDisableStopButton] = useState(true);
+  const [disabledPlay, setDisabledPlay] = useState(true);
   const [audio, setAudio] = useState<HTMLAudioElement>()
 
   const getLocalStream = () => {
@@ -26,9 +26,7 @@ export function App() {
       .getUserMedia({ audio: true })
       .then((stream) => {
         setMicrophonePermission(true)
-        window.localStream = stream; // A
-        //window.localAudio.srcObject = stream; // B
-        //window.localAudio.autoplay = true; // C
+        window.localStream = stream; 
       })
       .catch((err) => {
         setMicrophonePermission(false)
@@ -42,7 +40,7 @@ export function App() {
 
 
   const startRecording = async () => {
-    // try{
+     try{
 
 
     const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -56,12 +54,14 @@ export function App() {
     await audioContext.audioWorklet.addModule('worklet/worker.js');
 
     // Create an instance of the AudioWorklet node
-    const audioWorkletNode = new AudioWorkletNode(audioContext, 'test-processor');
+    const audioWorkletNode = new AudioWorkletNode(audioContext, 'custom-audio-processor');
+    
+    console.log(audioWorkletNode)
+
     audioWorkletNode.port.onmessage = (
       {data}
     ) => {
       console.log('data', data) 
-      // `data` is a Float32Array array containing our audio samples 
     }
 
     audioWorkletNode.connect(audioContext.destination);
@@ -83,21 +83,27 @@ export function App() {
     mediaRecorder.start();
 
     mediaRecorder.addEventListener('stop', () => {
+
       console.log('stop event from media recorder')
+
+      console.log('posting message')
+      audioWorkletNode.port.postMessage({ command: 'audio-ended' });
+
       const audioBlob = new Blob(chunks, { type: 'audio/wav' });
       chunks = [];
       const audioURL = URL.createObjectURL(audioBlob);
       setAudio(new Audio(audioURL))
       setDisableStartButton(false);
       setDisableStopButton(true)
+      setDisabledPlay(false)
     });
 
     setDisableStartButton(true)
     setDisableStopButton(false)
-    /*  }
+     }
        catch(error){
          console.error('Error accessing microphone:', error);
-       }; */
+       }; 
   }
 
   const stopRecording = () => {
@@ -118,12 +124,16 @@ export function App() {
 
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <input type='button' value='Start' onClick={startRecording} disabled={disableStartButton} />
-        <input type='button' value='Stop' onClick={stopRecording} disabled={disableStopButton} />
-        <input type='button' value='play' onClick={playAudio} />
-      </header>
+    <div className={styles.app}>
+    
+      <div className={styles.content}>
+      <div className={styles.header}>
+              Suki Assignment
+      </div>
+        <input className= {styles.button} type='button' value='Start' onClick={startRecording} disabled={disableStartButton} />
+        <input className= {styles.button}type='button' value='Stop' onClick={stopRecording} disabled={disableStopButton} />
+        <input className= {styles.button} type='button' value='play' onClick={playAudio} disabled={disabledPlay}  />
+      </div>
     </div>
   );
 
