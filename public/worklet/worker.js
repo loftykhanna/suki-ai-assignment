@@ -119,14 +119,13 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
     return this.bytesWritten === this.bufferSize;
   }
 
-  sendData(emptyBytes) {
+  sendData() {
     // trim the buffer if ended prematurely
     this.port.postMessage(
       this.bytesWritten < this.bufferSize
         ? this.buffer.slice(0, this.bytesWritten)
         : this.buffer
     );
-    if(emptyBytes)
     this.bytesWritten = 0;
   }
 
