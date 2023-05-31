@@ -16,9 +16,14 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
       this.desiredBytesPerChunk / (this.bytesPerSample * this.ChannelCount);
     // Track the current buffer fill level
     this.bytesWritten = 0;
+    // for transmitting 100ms data
+    this.internalbytesWritten = 0;
+
 
     // Create a buffer of fixed size
     this.buffer = new Array(this.bufferSize);
+    // buffer for transmitting 100ms data
+    this.internalBuffer = new Array(this.bufferSize);
     this.chunkCounter = 0; // Counter for tracking chunks
 
     this.stopProcess = false;
@@ -29,7 +34,19 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
         console.log('stoping the processing');
         this.stopProcessing();
       }
+
+      if (event.data.command === 'read-buffer') {
+        // stop the process and send the buffer
+        console.log('sending 100ms buffer');
+        this.send100msData();
+      }
     };
+
+   /*  setTimeout(()=>{
+      console.log('hii')
+    }, 1000) */
+   // this.throttledSendData = this.customThrottle(()=>this.sendData(false), 100)
+  
   }
 
   process(inputs, outputs, _parameters) {
@@ -50,7 +67,7 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
     const bytesPerSampleLeft =
       inputLeftChannel.buffer.byteLength / inputLeftChannel.length;
     // const bytesPerSampleRight = inputRightChannel.buffer.byteLength / inputRightChannel.length;
-    console.log('bytesPerSampleLeft - input', bytesPerSampleLeft);
+    //console.log('bytesPerSampleLeft - input', bytesPerSampleLeft);
 
     //console.log( 'inpuuts', inputs[0][0].length)
     const sampleCount = inputLeftChannel.length;
@@ -82,7 +99,7 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
     const bytesPerSampleLeftOutput =
       outputInt16LeftArray.buffer.byteLength / outputInt16LeftArray.length;
     // const bytesPerSampleRightOutput = outputChannelDataRight.buffer.byteLength / inputRightChannel.length;
-    console.log('bytesPerSampleLeftOutput --- output', bytesPerSampleLeftOutput);
+    //console.log('bytesPerSampleLeftOutput --- output', bytesPerSampleLeftOutput);
 
     this.transmitProcessedAudio(outputInt16LeftArray);
 
@@ -102,15 +119,28 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
     return this.bytesWritten === this.bufferSize;
   }
 
-  sendData() {
+  sendData(emptyBytes) {
     // trim the buffer if ended prematurely
     this.port.postMessage(
       this.bytesWritten < this.bufferSize
         ? this.buffer.slice(0, this.bytesWritten)
         : this.buffer
     );
+    if(emptyBytes)
     this.bytesWritten = 0;
   }
+
+  send100msData() {
+    // trim the buffer if ended prematurely
+    this.port.postMessage(
+      this.internalbytesWritten < this.bufferSize
+        ? this.internalBuffer.slice(0, this.internalbytesWritten)
+        : this.internalBuffer
+    );
+    this.internalbytesWritten = 0;
+  }
+
+
 
   transmitProcessedAudio(sample) {
     if (!sample) return;
@@ -119,7 +149,7 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
       this.sendData();
     }
     this.buffer[this.bytesWritten] = sample;
-
+    this.internalBuffer[this.bytesWritten] = sample;
     /*    
     below code was written when I was taking sample as input/output
     const leftChannelData = sample[0][0];
@@ -135,8 +165,37 @@ class CustomAudioProcessor extends AudioWorkletProcessor {
       this.buffer[this.bytesWritten][0][i] = leftChannelData[i];
       this.buffer[this.bytesWritten][1][i] = rightChannelData[i];
     } */
+
     this.bytesWritten++;
+    this.internalbytesWritten++;
   }
+
+
+  customThrottle(cb, delay){
+      let wait = false;
+      let storedArgs = null;
+    
+      function checkStoredArgs () {
+        if (storedArgs == null) {
+          wait = false;
+        } else {
+          cb(...storedArgs);
+          storedArgs = null;
+          require('timers').setTimeout(checkStoredArgs, delay);
+        }
+      }
+    
+      return (...args) => {
+        if (wait) {
+          storedArgs = args;
+          return;
+        }
+    
+        cb(...args);
+        wait = true;
+        require('timers').setTimeout(checkStoredArgs, delay);
+  }
+}
 }
 
 registerProcessor('custom-audio-processor', CustomAudioProcessor);

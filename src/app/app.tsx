@@ -26,7 +26,7 @@ export function App() {
       .getUserMedia({ audio: true })
       .then((stream) => {
         setMicrophonePermission(true)
-        window.localStream = stream; 
+        window.localStream = stream;
       })
       .catch((err) => {
         setMicrophonePermission(false)
@@ -40,70 +40,75 @@ export function App() {
 
 
   const startRecording = async () => {
-     try{
+    try {
 
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints)
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
 
-    const audioContext = new AudioContext({
-      sampleRate: 16600
-    });
-    const microphoneSource = audioContext.createMediaStreamSource(stream);
+      const audioContext = new AudioContext({
+        sampleRate: 16600
+      });
+      const microphoneSource = audioContext.createMediaStreamSource(stream);
 
 
-    await audioContext.audioWorklet.addModule('worklet/worker.js');
+      await audioContext.audioWorklet.addModule('worklet/worker.js');
 
-    // Create an instance of the AudioWorklet node
-    const audioWorkletNode = new AudioWorkletNode(audioContext, 'custom-audio-processor');
-    
-    console.log(audioWorkletNode)
+      // Create an instance of the AudioWorklet node
+      const audioWorkletNode = new AudioWorkletNode(audioContext, 'custom-audio-processor');
 
-    audioWorkletNode.port.onmessage = (
-      {data}
-    ) => {
-      console.log('data', data) 
+      const timerId = setInterval(() => {
+        console.log('read-bytes after 100ms')
+        audioWorkletNode.port.postMessage({ command: 'read-buffer' });
+      }, 100)
+
+      console.log(audioWorkletNode)
+
+      audioWorkletNode.port.onmessage = (
+        { data }
+      ) => {
+        console.log('data', data)
+      }
+
+      audioWorkletNode.connect(audioContext.destination);
+
+      microphoneSource.connect(audioWorkletNode);
+
+
+
+
+
+      console.log('getting stream', stream)
+      audioStream = stream;
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.addEventListener('dataavailable', event => {
+        console.log('data added')
+        chunks.push(event.data);
+      });
+      mediaRecorder.start();
+
+      mediaRecorder.addEventListener('stop', () => {
+        clearInterval(timerId)
+        console.log('stop event from media recorder')
+
+        console.log('posting message')
+        audioWorkletNode.port.postMessage({ command: 'audio-ended' });
+
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        chunks = [];
+        const audioURL = URL.createObjectURL(audioBlob);
+        setAudio(new Audio(audioURL))
+        setDisableStartButton(false);
+        setDisableStopButton(true)
+        setDisabledPlay(false)
+      });
+
+      setDisableStartButton(true)
+      setDisableStopButton(false)
     }
-
-    audioWorkletNode.connect(audioContext.destination);
-
-    microphoneSource.connect(audioWorkletNode);
-
-
-
-
-
-    console.log('getting stream', stream)
-    audioStream = stream;
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.addEventListener('dataavailable', event => {
-      console.log('data added')
-      chunks.push(event.data);
-    });
-    mediaRecorder.start();
-
-    mediaRecorder.addEventListener('stop', () => {
-
-      console.log('stop event from media recorder')
-
-      console.log('posting message')
-      audioWorkletNode.port.postMessage({ command: 'audio-ended' });
-
-      const audioBlob = new Blob(chunks, { type: 'audio/wav' });
-      chunks = [];
-      const audioURL = URL.createObjectURL(audioBlob);
-      setAudio(new Audio(audioURL))
-      setDisableStartButton(false);
-      setDisableStopButton(true)
-      setDisabledPlay(false)
-    });
-
-    setDisableStartButton(true)
-    setDisableStopButton(false)
-     }
-       catch(error){
-         console.error('Error accessing microphone:', error);
-       }; 
+    catch (error) {
+      console.error('Error accessing microphone:', error);
+    };
   }
 
   const stopRecording = () => {
@@ -125,14 +130,14 @@ export function App() {
 
   return (
     <div className={styles.app}>
-    
+
       <div className={styles.content}>
-      <div className={styles.header}>
-              Suki Assignment
-      </div>
-        <input className= {styles.button} type='button' value='Start' onClick={startRecording} disabled={disableStartButton} />
-        <input className= {styles.button}type='button' value='Stop' onClick={stopRecording} disabled={disableStopButton} />
-        <input className= {styles.button} type='button' value='play' onClick={playAudio} disabled={disabledPlay}  />
+        <div className={styles.header}>
+          Suki Assignment
+        </div>
+        <input className={styles.button} type='button' value='Start' onClick={startRecording} disabled={disableStartButton} />
+        <input className={styles.button} type='button' value='Stop' onClick={stopRecording} disabled={disableStopButton} />
+        <input className={styles.button} type='button' value='play' onClick={playAudio} disabled={disabledPlay} />
       </div>
     </div>
   );
